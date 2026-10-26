@@ -106,7 +106,7 @@ const SCRIBE_PERSONA = `You are the Scribe of Pipeline Room. You record what was
 const SCRIBE_SCHEMA = S({
   deals: { type: 'array', items: S({ ref: nstr, client: nstr, line: { type: 'string', description: 'what is happening, 10 words or fewer, for example "legal redlines back 23 Jun"' }, next_step_date: { type: ['string', 'null'], description: 'YYYY-MM-DD' }, signer: nstr, quote: str }, ['line', 'quote']) },
   sf_edits: { type: 'array', items: S({ ref: nstr, client: nstr, field: { type: 'string', enum: ['close', 'status', 'amount', 'stage'] }, to: str, line: { type: 'string', description: '8 words or fewer, for example "Ripple close date to 10 Jul"' }, quote: str }) },
-  promises_made: { type: 'array', items: S({ by: str, promise: { type: 'string', description: '12 words or fewer' }, ref: nstr, due: nstr, quote: str }, ['by', 'promise', 'quote']) },
+  promises_made: { type: 'array', items: S({ by: str, promise: { type: 'string', description: '12 words or fewer' }, ref: nstr, due: { type: ['string', 'null'], description: 'YYYY-MM-DD only if a date was said, else null' }, quote: str }, ['by', 'promise', 'quote']) },
   promises_checked: { type: 'array', items: S({ promise_id: str, status: { type: 'string', enum: ['kept', 'broken', 'unclear'] }, quote: str }) },
   for_mark: { type: 'array', items: S({ headline: { type: 'string', description: '8 words or fewer, phrased as a decision for Mark, for example "Email Ripple\'s CFO this week?"' }, ref: nstr, quote: str }) },
   not_covered: { type: 'array', items: str, description: 'refs from the list that never came up' },
@@ -302,7 +302,32 @@ function rankCards(cards, reactions) {
   return cards.map((c, i) => ({ ...c, rank: (score[c.topic] || 0) * 10 - i }));
 }
 
+// ---------- 7. Promises in a review recording ----------
+const REVIEW_PROMISES_SCHEMA = S({
+  promises_made: { type: 'array', items: S({ by: { type: 'string', description: 'full name, one of the people listed' }, promise: { type: 'string', description: '12 words or fewer' }, due: { type: ['string', 'null'], description: 'YYYY-MM-DD only if a date was said, else null' }, quote: str }, ['by', 'promise', 'quote']) },
+  promises_checked: { type: 'array', items: S({ promise_id: str, status: { type: 'string', enum: ['kept', 'broken', 'unclear'] }, quote: str }) },
+});
+function reviewPromisesRequest({ date, title, people, transcript, open = [] }) {
+  const user = `REVIEW MEETING on ${date}: ${title || ''}
+PEOPLE IN IT (reps): ${people.join(', ')}. Mark Goldberger usually runs the meeting. Speaker labels are often wrong, so work out who speaks from context.
+OPEN PROMISES FROM EARLIER (id | by | made on | promise)
+${open.map((p) => `${p.id} | ${p.by} | ${p.made_on} | ${p.promise}`).join('\n') || 'none'}
+TRANSCRIPT
+${transcript}
+TASK: promises_made: each concrete thing one of the reps listed said they would do, with a quote. Only the reps listed, never Mark. promises_checked: only open promises that clearly came up, kept or broken, with a quote.`;
+  return request({ system: SCRIBE_PERSONA, user, schema: REVIEW_PROMISES_SCHEMA, maxTokens: 6000, model: 'claude-sonnet-5-5' });
+}
+function reviewPromisesClean(out, transcript, people, open) {
+  const T = norm(transcript);
+  const found = (q) => q && norm(q).split(' ').length >= 3 && T.includes(norm(q));
+  return {
+    promises_made: (out.promises_made || []).filter((x) => people.includes(x.by) && found(x.quote) && words(x.promise) <= 14),
+    promises_checked: (out.promises_checked || []).filter((x) => open.some((o) => o.id === x.promise_id) && found(x.quote)),
+  };
+}
+
 module.exports = {
+  reviewPromisesRequest, reviewPromisesClean,
   MODEL, BUDGET, request, answer, words, norm, short, usd, pct, rulesText, budgetProblems, numberProblems, dealLine,
   scribeRequest, scribeProblems, scribeClean, repListRequest, askCardsRequest, profileRequest, coachCardsRequest,
   proposalRequest, proposalProblems, deployConfirmed, trainerBrief, fixRequest, PERSONA, decideCards, composeToday, rankCards,

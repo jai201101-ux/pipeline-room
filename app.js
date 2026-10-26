@@ -512,9 +512,9 @@
       if (!raw || !date || !people.length) { $out.innerHTML = '<span class="error">Add the transcript, the date, and at least one person.</span>'; return; }
       btn.disabled = true; btn.textContent = 'Adding…';
       try {
-        await q(sb.rpc('room_add_transcript', { p_date: date, p_title: document.getElementById('trTitle').value || 'Pipeline review', p_people: people, p_raw: raw }));
-        await server('transcript-added', { people });
-        $out.innerHTML = `<div class="card ok"><b>Added.</b><span class="small">The coaching brain is re-reading ${people.length} profile${people.length > 1 ? 's' : ''}. Today refreshes in about two minutes.</span></div>`;
+        const tid = await q(sb.rpc('room_add_transcript', { p_date: date, p_title: document.getElementById('trTitle').value || 'Pipeline review', p_people: people, p_raw: raw }));
+        await server('transcript-added', { people, transcript_id: tid });
+        $out.innerHTML = `<div class="card ok"><b>Added.</b><span class="small">The coaching brain is re-reading ${people.length} profile${people.length > 1 ? 's' : ''} and logging promises. Today refreshes in about two minutes.</span></div>`;
         btn.textContent = 'Added';
       } catch (err) { btn.disabled = false; btn.textContent = 'Try again'; $out.innerHTML = `<span class="error">${esc(err.message || err)}</span>`; }
     };

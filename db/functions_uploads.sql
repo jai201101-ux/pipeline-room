@@ -55,3 +55,30 @@ do $$ declare f text; begin
   end loop;
 end $$;
 notify pgrst, 'reload schema';
+
+-- Promises in a new review recording: what each person promised, and which open promises came up
+create or replace function room_review_context(p_transcript uuid) returns json language sql stable as $$
+  select json_build_object(
+    'transcript', (select json_build_object('id', id, 'date', date, 'title', title, 'people', people, 'raw', raw) from transcripts where id = p_transcript),
+    'open', (select coalesce(json_agg(json_build_object('id', p.id, 'by', p.by_person, 'made_on', p.made_on, 'promise', p.promise) order by p.made_on), '[]')
+             from promises p, transcripts t where t.id = p_transcript and p.by_person = any(t.people) and p.status in ('open', 'unclear', 'not raised again') and p.made_on < t.date)) $$;
+
+create or replace function room_save_review_promises(p_transcript uuid, p_made jsonb, p_checked jsonb) returns json language plpgsql as $$
+declare t transcripts; x jsonb; a int := 0; b int := 0; begin
+  select * into t from transcripts where id = p_transcript;
+  for x in select * from jsonb_array_elements(coalesce(p_made, '[]')) loop
+    if (x->>'by') = any(t.people) then
+      insert into promises(made_on, made_in, by_person, promise, due, status, evidence) values (t.date, t.id, x->>'by', x->>'promise', case when x->>'due' ~ '^\d{4}-\d{2}-\d{2}$' then (x->>'due')::date end, 'open', x->>'quote'); a := a + 1;
+    end if;
+  end loop;
+  for x in select * from jsonb_array_elements(coalesce(p_checked, '[]')) loop
+    update promises set status = x->>'status', checked_on = t.date, evidence = x->>'quote' where id = (x->>'promise_id')::uuid and by_person = any(t.people); b := b + 1;
+  end loop;
+  update transcripts set extraction = coalesce(extraction, '{}'::jsonb) || jsonb_build_object('promises_made', p_made, 'promises_checked', p_checked) where id = p_transcript;
+  return json_build_object('made', a, 'checked', b);
+end $$;
+revoke all on function room_review_context(uuid) from public, anon, authenticated;
+revoke all on function room_save_review_promises(uuid, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function room_review_context(uuid) to service_role;
+grant execute on function room_save_review_promises(uuid, jsonb, jsonb) to service_role;
+notify pgrst, 'reload schema';

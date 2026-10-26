@@ -305,6 +305,18 @@ const H10 = rpc('H · Save profiles', 'room_save_output', '={{ JSON.stringify($j
 const H11 = code('H · One go', 'return [{ json: {} }];', false);
 const H12 = http('H · Rebuild Today', { url: `${BASE}/pipeline-room/rebuild-today`, headers: { 'x-room-key': ST.room_key }, body: '={{ "{}" }}' });
 chain(H3, H4, H5, H6, H7, H8, H9, H10, H11, H12);
+const HP1 = rpc('H · Recording and open promises', 'room_review_context', "={{ JSON.stringify({ p_transcript: $('H · Allowed?').first().json.body.transcript_id }) }}");
+const HP2 = code('H · Prepare promises', `const c = $input.first().json; const t = c.transcript;
+if (!t) return [];
+return [{ json: { body: X.reviewPromisesRequest({ date: t.date, title: t.title, people: t.people, transcript: t.raw, open: c.open }) } }];`);
+const HP3 = claude('H · Promises (Claude)');
+const HP4 = code('H · Check promises', `const c = $('H · Recording and open promises').first().json; const t = c.transcript;
+const out = X.reviewPromisesClean(X.answer($input.first().json), t.raw, t.people, c.open);
+return [{ json: { body: { p_transcript: t.id, p_made: out.promises_made, p_checked: out.promises_checked } } }];`);
+const HP5 = rpc('H · Save promises', 'room_save_review_promises', '={{ JSON.stringify($json.body) }}');
+const HP0 = ifNode('H · New recording?', "={{ !!$('H · Allowed?').first().json.body.transcript_id }}");
+link(H4, HP0); link(HP0, HP1, 0);
+chain(HP1, HP2, HP3, HP4, HP5);
 
 const wf = { name: 'Pipeline Room · brains', nodes, connections, settings: { executionOrder: 'v1' } };
 fs.writeFileSync(path.join(__dirname, 'wf_brains.json'), JSON.stringify(wf, null, 1));
