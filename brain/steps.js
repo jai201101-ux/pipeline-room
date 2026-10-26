@@ -330,7 +330,17 @@ function reviewPromisesClean(out, transcript, people, open) {
   };
 }
 
+// The model sometimes returns a nested list as a JSON string: turn it back into a list
+const asList = (x) => { if (Array.isArray(x)) return x; if (typeof x === 'string') { try { const v = JSON.parse(x); return Array.isArray(v) ? v : [v]; } catch (e) { return x.trim() ? [x] : []; } } return x ? [x] : []; };
+function profileNormalize(p) {
+  p.strengths = asList(p.strengths); p.patterns = asList(p.patterns);
+  let r = p.for_rep; if (typeof r === 'string') { try { r = JSON.parse(r); } catch (e) { r = null; } }
+  p.for_rep = r ? { strengths: asList(r.strengths).filter((t) => typeof t === 'string'), to_try: asList(r.to_try).filter((t) => typeof t === 'string') } : null;
+  return p;
+}
+
 module.exports = {
+  profileNormalize,
   reviewPromisesRequest, reviewPromisesClean,
   MODEL, BUDGET, request, answer, words, norm, short, usd, pct, rulesText, budgetProblems, numberProblems, dealLine,
   scribeRequest, scribeProblems, scribeClean, repListRequest, askCardsRequest, profileRequest, coachCardsRequest,

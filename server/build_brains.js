@@ -132,7 +132,7 @@ return [{ json: { skip: c.transcripts.length < 2, body: X.profileRequest(who, pa
 const B13 = claude('B · Profile (Claude)');
 const B14 = code('B · Check quotes', `const c = $('B · Coach context').first().json; const who = $('B · Allowed?').first().json.person;
 if ($('B · Prepare the profile').first().json.skip) return [{ json: { body: null } }];
-const p = X.answer($input.first().json);
+const p = X.profileNormalize(X.answer($input.first().json));
 const byDate = {}; for (const t of c.transcripts) byDate[t.date] = (byDate[t.date] || '') + ' ' + X.norm(t.raw);
 const ok = (e) => e && e.quote && byDate[e.date] && byDate[e.date].includes(X.norm(e.quote));
 for (const k of ['strengths', 'patterns']) p[k] = (p[k] || []).map((o) => ({ ...o, evidence: (o.evidence || []).filter(ok) })).filter((o) => o.evidence.length);
@@ -295,7 +295,7 @@ return $input.all().map((it, i) => { const c = it.json;
   return { json: { person: who[i], ctx: c, skip: c.transcripts.length < 2, body: X.profileRequest(who[i], pack, c.rules) } }; }).filter((x) => !x.json.skip);`);
 const H8 = claude('H · Profiles (Claude)', '={{ JSON.stringify($json.body) }}', { batch: 3 });
 const H9 = code('H · Check quotes', `const prep = $('H · Prepare profiles').all().map((i) => i.json);
-return $input.all().map((it, i) => { const c = prep[i].ctx; let p; try { p = X.answer(it.json); } catch (e) { return null; }
+return $input.all().map((it, i) => { const c = prep[i].ctx; let p; try { p = X.profileNormalize(X.answer(it.json)); } catch (e) { return null; }
   const byDate = {}; for (const t of c.transcripts) byDate[t.date] = (byDate[t.date] || '') + ' ' + X.norm(t.raw);
   const ok = (e) => e && e.quote && byDate[e.date] && byDate[e.date].includes(X.norm(e.quote));
   for (const k of ['strengths', 'patterns']) p[k] = (p[k] || []).map((o) => ({ ...o, evidence: (o.evidence || []).filter(ok) })).filter((o) => o.evidence.length);
