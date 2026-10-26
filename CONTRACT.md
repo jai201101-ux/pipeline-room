@@ -33,6 +33,35 @@ Change this file first, then the code.
 
 A brain never changes its own rules.
 
+## The thinking model
+
+Mark's thinking model is the two sets of rules together: deal rules (deal brain) and coaching rules (coaching brain). Every agent's output passes through it before anyone sees it: the check-in caller's questions, the Briefer, Today's cards, the coaching cards.
+
+## Training a brain by voice
+
+Two trainers, one per brain. They validate, they do not argue.
+
+| Trainer | Trains | Personality |
+|---|---|---|
+| The Analyst | Deal rules | Precise, calm, reflects back in numbers |
+| The Mentor | Coaching rules | Warm, curious, reflects back in plain words |
+
+During a session, for each idea:
+1. Listen. Mark says it in his own words.
+2. Play it back: "So you mean ... Is that right?"
+3. Show the effect on screen: what would change, and how much evidence sits behind it (a quiet tag, not an argument).
+4. If it conflicts with an existing rule, ask which one wins. Never decide alone.
+
+At the end of every session:
+1. The trainer summarises everything Mark said, as the rules it would become.
+2. It asks: "Deploy this across the app?" The screen shows the summary and what each agent will do differently.
+3. Only when Mark taps Deploy does a new version of the thinking model go live. Every agent picks it up on its next run: the deal brain rebuilds lists and cards, the check-in caller gets new briefs, the Briefer re-reads.
+4. Every version is kept, so Mark can see what changed and roll back.
+
+## Where it runs
+
+A website that works on a phone and a laptop. Phone: one column. Laptop: cards on the left, the "since last review" summary and the trainers on the right.
+
 ## Word and screen budgets (enforced in code)
 
 - Card headline: 8 words or fewer.
