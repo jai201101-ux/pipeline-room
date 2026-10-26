@@ -428,18 +428,98 @@
   async function screenInputs() {
     const [exp, trs, ppl] = await Promise.all([
       q(sb.from('exports').select('*').order('uploaded_at', { ascending: false }).limit(1)),
-      q(sb.from('transcripts').select('kind,date')),
-      q(sb.from('people').select('name,role,email')),
+      q(sb.from('transcripts').select('kind,date').order('date', { ascending: false })),
+      q(sb.from('people').select('name,role,email').order('name')),
     ]);
-    const e = exp[0];
-    $app.innerHTML = header('ADMIN', 'Inputs', 'What the brains read. New inputs rebuild every screen.') + `
+    const e = exp[0]; const reviews = trs.filter((t) => t.kind === 'review');
+    const reps = ppl.filter((p) => p.role === 'rep').map((p) => p.name);
+    $app.innerHTML = header('ADMIN', 'Inputs', 'What the brains read. Anything new here refreshes check-in lists, profiles and Today.') + `
       <section class="section"><div class="card"><div class="list">
-        <div class="row"><span>Salesforce export</span><span class="meta">${e ? `to ${day(e.as_of)} · ${e.deals.toLocaleString('en-US')} deals` : 'none'}</span></div>
-        <div class="row"><span>Review meetings</span><span class="meta">${trs.filter((t) => t.kind === 'review').length} recorded</span></div>
-        <div class="row"><span>Check-ins</span><span class="meta">${trs.filter((t) => t.kind === 'checkin').length} sent</span></div>
+        <div class="row"><span>Salesforce export</span><span class="meta">${e ? `data to ${day(e.as_of)} · ${e.deals.toLocaleString('en-US')} deals · ${day(e.uploaded_at)}` : 'none'}</span></div>
+        <div class="row"><span>Review recordings</span><span class="meta">${reviews.length}${reviews[0] ? ` · latest ${day(reviews[0].date)}` : ''}</span></div>
+        <div class="row"><span>Check-ins</span><span class="meta">${trs.length - reviews.length} sent</span></div>
         <div class="row"><span>People who can sign in</span><span class="meta">${ppl.filter((p) => p.email).length} of ${ppl.length}</span></div>
-      </div></div><div class="small">Deal brain coached by Mark and the CEO. Coaching brain coached by Mark. Uploads are done by the admin for now.</div></section>`;
+      </div></div></section>
+
+      <section class="section"><h2 class="grp g-ask">New Salesforce export</h2><div class="card">
+        <div class="text">The same export as before: one row per product line, .xlsx or .csv.</div>
+        <label class="btn ghost filebtn">Choose file<input type="file" id="sfFile" accept=".xlsx,.xls,.csv" hidden></label>
+        <div id="sfOut" class="text" aria-live="polite"></div>
+      </div></section>
+
+      <section class="section"><h2 class="grp g-coach">New review recording</h2><div class="card">
+        <div class="text">A transcript as text (.txt, .vtt, .md), or paste it below.</div>
+        <label class="btn ghost filebtn">Choose file<input type="file" id="trFile" accept=".txt,.vtt,.md,.srt,text/plain" hidden></label>
+        <label>Transcript<textarea id="trText" rows="5" placeholder="Paste the transcript here"></textarea></label>
+        <div class="two-inputs"><label>Meeting date<input type="date" id="trDate"></label><label>Title<input id="trTitle" placeholder="MM US pipeline review"></label></div>
+        <div class="small">Who was in it? Names found in the text are ticked.</div>
+        <div class="people" id="trPeople">${reps.map((n) => `<label class="tick"><input type="checkbox" value="${esc(n)}"><span>${esc(n)}</span></label>`).join('')}</div>
+        <button class="btn ink" id="trAdd">Add recording</button>
+        <div id="trOut" class="text" aria-live="polite"></div>
+      </div></section>`;
+
+    // ---- Salesforce export: read and check in the browser, then load in chunks ----
+    const $sf = document.getElementById('sfOut');
+    document.getElementById('sfFile').onchange = async (ev) => {
+      const f = ev.target.files[0]; if (!f) return;
+      $sf.textContent = `Reading ${f.name}…`;
+      try {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+        await loadScript('vendor/room-data.js');
+        const wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' });
+        const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+        const need = ['Opportunity ID', 'Opportunity Owner', 'Owner Role', 'Stage', 'Close Date', 'Total Price (converted)'];
+        const missing = need.filter((k) => !(rows[0] && k in rows[0]));
+        if (missing.length) { $sf.innerHTML = `<span class="error">This file is missing columns: ${missing.map(esc).join(', ')}.</span>`; return; }
+        const { deals, today } = window.RoomData.ingest(rows);
+        const F = window.RoomData.buildFacts(deals, today);
+        const iso = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null);
+        const t = new Date(`${F.asOf}T00:00:00Z`); do { t.setUTCDate(t.getUTCDate() + 1); } while (t.getUTCDay() !== 2);
+        const repNames = Object.keys(F.reps); const newReps = repNames.filter((n) => !ppl.some((p) => p.name === n));
+        $sf.innerHTML = `<ul class="plainlist"><li>${rows.length.toLocaleString('en-US')} rows, ${deals.length.toLocaleString('en-US')} deals</li><li>Data to ${day(F.asOf)}${e ? ` (last export: ${day(e.as_of)})` : ''}</li><li>${repNames.length} AEs, ${F.live.length} open deals${newReps.length ? `, ${newReps.length} new: ${newReps.map(esc).join(', ')}` : ''}</li></ul>
+          <label>Next review<input type="date" id="sfReview" value="${iso(t)}"></label>
+          <button class="btn ink" id="sfLoad">Load it</button>`;
+        document.getElementById('sfLoad').onclick = async (b) => {
+          const btn = b.currentTarget; btn.disabled = true;
+          const say = (m) => { btn.textContent = m; };
+          try {
+            say('Starting…');
+            const exportId = await q(sb.rpc('room_export_start', { p_as_of: F.asOf, p_rows: rows.length, p_deals: deals.length }));
+            const D = deals.map((d) => ({ id: d.id, ref: d.ref, owner: d.owner, segment: d.segment, region: d.region, value: d.value, band: window.RoomData.band(d.value), stage: d.stageName, stage_num: d.stageNum, prob: d.prob, close: iso(d.close), status: d.status, entered_stage: iso(d.enteredStage), source: d.source, type: d.type, products: d.families }));
+            for (let i = 0; i < D.length; i += 2000) { say(`Loading deals ${Math.min(i + 2000, D.length).toLocaleString('en-US')} of ${D.length.toLocaleString('en-US')}…`); await q(sb.rpc('room_export_deals', { p_export: exportId, p_deals: D.slice(i, i + 2000) })); }
+            say('Saving the facts…');
+            const fin = await q(sb.rpc('room_export_finish', { p_export: exportId, p_facts: F, p_review: document.getElementById('sfReview').value }));
+            await server('export-loaded', {});
+            $sf.innerHTML = `<div class="card ok"><b>Loaded. Data to ${day(fin.as_of)}, review on ${day(fin.review)}.</b><span class="small">The deal brain is rewriting every check-in list. Today refreshes in about two minutes.</span></div>`;
+          } catch (err) { btn.disabled = false; btn.textContent = 'Try again'; $sf.insertAdjacentHTML('beforeend', `<div class="error">${esc(err.message || err)}</div>`); }
+        };
+      } catch (err) { $sf.innerHTML = `<span class="error">Could not read this file: ${esc(err.message || err)}</span>`; }
+    };
+
+    // ---- Review recording ----
+    const $txt = document.getElementById('trText'), $out = document.getElementById('trOut');
+    const tickNames = () => { const t = $txt.value.toLowerCase(); document.querySelectorAll('#trPeople input').forEach((c) => { if (t && t.includes(c.value.toLowerCase())) c.checked = true; }); };
+    $txt.oninput = tickNames;
+    document.getElementById('trFile').onchange = async (ev) => {
+      const f = ev.target.files[0]; if (!f) return;
+      $txt.value = await f.text(); tickNames();
+      const m = f.name.match(/(\d{4}-\d{2}-\d{2})/); if (m) document.getElementById('trDate').value = m[1];
+      document.getElementById('trTitle').value = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+    };
+    document.getElementById('trAdd').onclick = async (b) => {
+      const btn = b.currentTarget; const raw = $txt.value.trim(); const date = document.getElementById('trDate').value;
+      const people = [...document.querySelectorAll('#trPeople input:checked')].map((c) => c.value);
+      if (!raw || !date || !people.length) { $out.innerHTML = '<span class="error">Add the transcript, the date, and at least one person.</span>'; return; }
+      btn.disabled = true; btn.textContent = 'Adding…';
+      try {
+        await q(sb.rpc('room_add_transcript', { p_date: date, p_title: document.getElementById('trTitle').value || 'Pipeline review', p_people: people, p_raw: raw }));
+        await server('transcript-added', { people });
+        $out.innerHTML = `<div class="card ok"><b>Added.</b><span class="small">The coaching brain is re-reading ${people.length} profile${people.length > 1 ? 's' : ''}. Today refreshes in about two minutes.</span></div>`;
+        btn.textContent = 'Added';
+      } catch (err) { btn.disabled = false; btn.textContent = 'Try again'; $out.innerHTML = `<span class="error">${esc(err.message || err)}</span>`; }
+    };
   }
+  const loadScript = (src) => new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error(`could not load ${src}`)); document.head.appendChild(el); });
 
   // ---------- sign in ----------
   function screenLogin(msg) {

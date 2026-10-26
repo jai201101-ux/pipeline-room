@@ -167,3 +167,10 @@ input { font: inherit; font-size: 15px; padding: 12px 14px; border-radius: 12px;
   .rail { position: sticky; top: 72px; }
   body[data-screen="checkin"] .shell, body[data-screen="brief"] .shell, body[data-screen="train"] .shell, body[data-screen="draft"] .shell, body[data-screen="session"] .shell, body[data-screen="me"] .shell, body[data-screen="person"] .shell { max-width: 720px; }
 }
+
+.filebtn { cursor: pointer; flex-direction: row; color: var(--ink); }
+textarea { font: inherit; font-size: 14px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); resize: vertical; }
+.two-inputs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; }
+.people { display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); column-gap: 16px; max-height: 16em; overflow: auto; }
+.people .tick input:not(:checked) + span { text-decoration: none; color: var(--ink); }
+#sfOut, #trOut { display: flex; flex-direction: column; gap: 10px; }

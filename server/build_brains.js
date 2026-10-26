@@ -3,6 +3,7 @@
 //   C rebuild Today                       D training session ended -> proposal
 //   E deploy -> new thinking model version, refresh lists, rebuild Today
 //   F trainer brief -> what the Analyst or Mentor knows when a call starts
+//   G new Salesforce export -> every list, Today     H new review recording -> profiles, Today
 // Code steps only prepare and check (fast). Every Claude call is its own web-request step.
 const fs = require('fs');
 const path = require('path');
@@ -261,6 +262,49 @@ const c = $input.first().json;
 return [{ json: { brief: X.trainerBrief(brain, c), version: c.version } }];`);
 const F6 = respond('F · Brief', '={{ JSON.stringify($json) }}');
 chain(F3, F4, F5, F6);
+
+row();
+
+// ---------------- G. New Salesforce export loaded -> every list, then Today ----------------
+const G0 = webhook('G · Export loaded', 'export-loaded');
+const G3 = whoami('G', G0, true);
+const G4 = respond('G · Started', '={{ JSON.stringify({ ok: true }) }}');
+const G5 = rpc('G · Deal context', 'room_deal_context', '={{ "{}" }}');
+const G6 = code('G · Prepare every list', `const c = $input.first().json;
+return Object.keys(c.facts.reps).filter((o) => c.facts.reps[o].liveDeals > 0).map((o) => ({ json: { person: o, body: X.repListRequest(c.facts, c.rules, o, c.clients || {}, (c.news || {})[o] || []) } }));`);
+const G7 = claude('G · Lists (Claude)', '={{ JSON.stringify($json.body) }}', { batch: 5 });
+const G8 = code('G · Check the lists', `const c = $('G · Deal context').first().json; const who = $('G · Prepare every list').all().map((i) => i.json.person);
+return $input.all().map((it, i) => { let out; try { out = X.answer(it.json); } catch (e) { return null; }
+  out.listen_for = (out.listen_for || []).filter((x) => c.facts.live.some((d) => d.ref === x.ref)).map((x) => ({ ...x, deal: c.facts.live.find((d) => d.ref === x.ref) }));
+  return { json: { body: { p_brain: 'deal', p_kind: 'rep_list', p_person: who[i], p_body: out } } }; }).filter(Boolean);`);
+const G9 = rpc('G · Save the lists', 'room_save_output', '={{ JSON.stringify($json.body) }}');
+const G10 = code('G · One go', 'return [{ json: {} }];', false);
+const G11 = http('G · Rebuild Today', { url: `${BASE}/pipeline-room/rebuild-today`, headers: { 'x-room-key': ST.room_key }, body: '={{ "{}" }}' });
+chain(G3, G4, G5, G6, G7, G8, G9, G10, G11);
+row();
+
+// ---------------- H. Review recording added -> profiles of everyone in it, then Today ----------------
+const H0 = webhook('H · Recording added', 'transcript-added');
+const H3 = whoami('H', H0, true);
+const H4 = respond('H · Started', '={{ JSON.stringify({ ok: true }) }}');
+const H5 = code('H · Each person', `return ($('H · Allowed?').first().json.body.people || []).map((p) => ({ json: { person: p } }));`, false);
+const H6 = rpc('H · Coach context', 'room_coach_context', '={{ JSON.stringify({ p_person: $json.person }) }}');
+const H7 = code('H · Prepare profiles', `const who = $('H · Each person').all().map((i) => i.json.person);
+return $input.all().map((it, i) => { const c = it.json;
+  const pack = c.transcripts.map((t) => '=============== ' + t.date + ' · ' + (t.kind === 'checkin' ? 'CHECK-IN IN THE APP' : 'REVIEW MEETING: ' + (t.title || '')) + '\\n' + t.raw).join('\\n\\n');
+  return { json: { person: who[i], ctx: c, skip: c.transcripts.length < 2, body: X.profileRequest(who[i], pack, c.rules) } }; }).filter((x) => !x.json.skip);`);
+const H8 = claude('H · Profiles (Claude)', '={{ JSON.stringify($json.body) }}', { batch: 3 });
+const H9 = code('H · Check quotes', `const prep = $('H · Prepare profiles').all().map((i) => i.json);
+return $input.all().map((it, i) => { const c = prep[i].ctx; let p; try { p = X.answer(it.json); } catch (e) { return null; }
+  const byDate = {}; for (const t of c.transcripts) byDate[t.date] = (byDate[t.date] || '') + ' ' + X.norm(t.raw);
+  const ok = (e) => e && e.quote && byDate[e.date] && byDate[e.date].includes(X.norm(e.quote));
+  for (const k of ['strengths', 'patterns']) p[k] = (p[k] || []).map((o) => ({ ...o, evidence: (o.evidence || []).filter(ok) })).filter((o) => o.evidence.length);
+  p.person = prep[i].person; p.reviews = [...new Set(c.transcripts.map((t) => t.date))]; p.updated_after = c.transcripts[c.transcripts.length - 1].date;
+  return { json: { body: { p_brain: 'coach', p_kind: 'profile', p_person: prep[i].person, p_body: p } } }; }).filter(Boolean);`);
+const H10 = rpc('H · Save profiles', 'room_save_output', '={{ JSON.stringify($json.body) }}');
+const H11 = code('H · One go', 'return [{ json: {} }];', false);
+const H12 = http('H · Rebuild Today', { url: `${BASE}/pipeline-room/rebuild-today`, headers: { 'x-room-key': ST.room_key }, body: '={{ "{}" }}' });
+chain(H3, H4, H5, H6, H7, H8, H9, H10, H11, H12);
 
 const wf = { name: 'Pipeline Room · brains', nodes, connections, settings: { executionOrder: 'v1' } };
 fs.writeFileSync(path.join(__dirname, 'wf_brains.json'), JSON.stringify(wf, null, 1));
