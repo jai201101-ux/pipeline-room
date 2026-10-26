@@ -216,8 +216,17 @@
       q(sb.from('promises').select('*').eq('by_person', name).order('made_on', { ascending: false }).limit(5)),
     ]);
     const p = prof[0] && prof[0].body; const self = S.me.name === name;
+    if (!isLead()) {
+      const r = (p && p.for_rep) || null; const open = promises.filter((x) => x.status === 'open' || x.status === 'unclear');
+      $app.innerHTML = header('ABOUT YOU', `${esc(first(name))}, how it's going`, 'A short read from your check-ins and reviews.') + `
+        <section class="section"><h2 class="grp g-coach">What you do well</h2><div class="card">${r && r.strengths.length ? `<ul class="plainlist">${r.strengths.slice(0, 2).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>` : empty(p ? 'Your notes are being refreshed. Check back soon.' : 'After a couple of reviews, this fills in.')}</div></section>
+        ${r && r.to_try.length ? `<section class="section"><h2 class="grp g-coach">Things to try</h2><div class="card"><ul class="plainlist">${r.to_try.slice(0, 2).map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div></section>` : ''}
+        ${l ? `<section class="section"><h2 class="grp g-ask">Next check-in asks about</h2><div class="card">${listRows(l.body)}</div></section>` : ''}
+        ${open.length ? `<section class="section"><h2 class="grp">Your open promises</h2><div class="card"><div class="list">${open.map((x) => `<div class="row"><span>${esc(x.promise)}</span><span class="meta">${day(x.made_on)}</span></div>`).join('')}</div></div></section>` : ''}`;
+      return;
+    }
     const obs = (o) => `<li>${esc(o.observation)}${o.evidence && o.evidence[0] ? `<div class="quote"><b>${day(o.evidence[0].date)}</b> “${esc(o.evidence[0].quote)}”</div>` : ''}</li>`;
-    $app.innerHTML = header(self ? 'ABOUT YOU' : 'PERSON', esc(name), self ? 'What both brains see. Mark sees the same.' : '') + `
+    $app.innerHTML = header(self ? 'ABOUT YOU' : 'PERSON', esc(name), '') + `
       ${p ? `<section class="section"><h2 class="grp g-coach">Coaching</h2><div class="card"><div class="text">${esc(p.in_one_line)}</div>
         <h3>Strengths</h3><ul class="plainlist">${(p.strengths || []).slice(0, 2).map(obs).join('')}</ul>
         <h3>To work on</h3><ul class="plainlist">${(p.patterns || []).slice(0, 2).map(obs).join('')}</ul>

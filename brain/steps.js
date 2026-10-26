@@ -187,13 +187,17 @@ TASK: write up to 3 cards for "Ask in the meeting": questions Mark should put to
 // ---------- 4. Coaching brain: profile and Coach cards ----------
 const EVIDENCE = { type: 'array', items: S({ date: { type: 'string', description: 'YYYY-MM-DD' }, quote: { type: 'string', description: 'word for word' } }) };
 const OBS = S({ observation: str, evidence: EVIDENCE });
-const PROFILE_SCHEMA = S({ person: str, in_one_line: str, strengths: { type: 'array', items: OBS }, patterns: { type: 'array', items: OBS }, likely_reaction: str, coaching_move: str });
+const PROFILE_SCHEMA = S({ person: str, in_one_line: str, strengths: { type: 'array', items: OBS }, patterns: { type: 'array', items: OBS }, likely_reaction: str, coaching_move: str,
+  for_rep: S({
+    strengths: { type: 'array', items: { type: 'string', description: 'to the rep, starting "You", warm and specific, 18 words or fewer' } },
+    to_try: { type: 'array', items: { type: 'string', description: 'to the rep, a gentle suggestion starting "Try" or "It could help to", 18 words or fewer, no blame' } },
+  }) });
 function profileRequest(name, pack, rules) {
   const user = `YOUR RULES (what good looks like here)
 ${rulesText(rules)}
 Everything on file for ${name}, oldest first: reviews and check-ins. Read all of it.
 ${pack}
-TASK: write ${name}'s profile. 1 or 2 strengths and 1 to 3 patterns, each with 1 to 3 dated quotes copied exactly (6 to 30 words). A pattern must appear on two dates or more. likely_reaction and coaching_move follow from the evidence.`;
+TASK: write ${name}'s profile. 1 or 2 strengths and 1 to 3 patterns, each with 1 to 3 dated quotes copied exactly (6 to 30 words). A pattern must appear on two dates or more. likely_reaction and coaching_move follow from the evidence. Then for_rep: what the rep sees about themselves, written to them as "you". 1 or 2 strengths, then at most 2 things to try, drawn from the patterns but phrased softly as next steps. No quotes, no dates, no names, no mention of Mark's views.`;
   return request({ system: PERSONA.coach, user, schema: PROFILE_SCHEMA, maxTokens: 6000 });
 }
 const COACH_CARDS_SCHEMA = S({ cards: { type: 'array', items: S({ person: str, headline: { type: 'string', description: `${BUDGET.headline} words or fewer, "Name: the behaviour"` }, number: { type: 'string', description: 'a count from the evidence, for example "2 extensions"' }, body: { type: 'string', description: `${BUDGET.body} words or fewer` }, why: { type: 'array', items: S({ date: str, quote: str }) }, move: { type: 'string', description: `one sentence, ${BUDGET.move} words or fewer` }, topic: str }) } });
