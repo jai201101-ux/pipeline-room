@@ -118,3 +118,5 @@ input, textarea { font: inherit; font-size: 15px; padding: 12px 14px; border-rad
 .orb.on { background: var(--ink); }
 .orb.speaking { background: var(--deal-band); }
 @media (prefers-reduced-motion: no-preference) { .orb.on { animation: breathe 2.4s ease-in-out infinite; } @keyframes breathe { 50% { transform: scale(1.04); } } }
+
+.onink a { color: rgba(255,255,255,0.9); text-decoration: underline; }

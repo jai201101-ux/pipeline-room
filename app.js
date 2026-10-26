@@ -229,7 +229,7 @@
     if (!isLead() && name !== S.me.name) name = S.me.name;
     const b = await briefFor(name);
     const back = isLead() ? `<a href="#person/${slug(name)}">← ${esc(name)}</a>` : '<a href="#me">← My week</a>';
-    $app.innerHTML = `<header class="top" style="background:var(--ink);color:var(--surface);border:0"><div class="brandrow" style="color:rgba(255,255,255,.75)"><span class="brand">CHECK-IN</span><span>${back}</span></div><h1>${esc(name)}</h1><div class="sub" style="color:rgba(255,255,255,.8)">About three minutes. The agent listens first, then asks.</div></header>
+    $app.innerHTML = `<header class="top" style="background:var(--ink);color:var(--surface);border:0"><div class="brandrow" style="color:rgba(255,255,255,.75)"><span class="brand">CHECK-IN</span><span class="onink">${back}</span></div><h1>${esc(name)}</h1><div class="sub" style="color:rgba(255,255,255,.8)">About three minutes. The agent listens first, then asks.</div></header>
       <div class="section" style="align-items:center;text-align:center;padding-top:28px">
         <button id="orb" class="orb" type="button" aria-label="Start check-in"><svg width="44" height="44" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="2" width="6" height="10" rx="3" fill="#fff"></rect><path d="M4 10a6 6 0 0 0 12 0M10 16v2" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"></path></svg></button>
         <div id="ciStatus" class="sub" aria-live="polite">Tap to start. Your browser will ask to use the microphone.</div>
