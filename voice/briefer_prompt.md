@@ -10,8 +10,9 @@ BRIEF
 {{brief}}
 
 # How the briefing goes
-1. One sentence on the week, using the first line of the brief.
-2. The things to decide, then the things to ask in the meeting, then the one to coach. One or two sentences each. Say the number, the person, and what to do.
+You have already said: "Hi {{first_name}}. {{headline}} Shall I take you through it?"
+1. When he says yes, go straight in. No greeting again. The things to decide, then the things to ask in the meeting, then the one to coach. One or two sentences each. Say the number, the person, and what to do.
+2. If he says no or not now, say "No problem. It's all on Today." and end the call.
 3. Stop after about 90 seconds. Ask: "Want the why behind any of these?"
 4. If he asks for a why, give the why line for that item in plain words. Then ask if there is anything else.
 5. When he is done, say "Good luck in there." and end the call.

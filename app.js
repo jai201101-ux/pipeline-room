@@ -170,6 +170,7 @@
     const item = (c, i) => `${i + 1}. ${c.headline}. ${c.number ? `Number: ${c.number}. ` : ''}${plain(c.body)}${c.move ? ` Move: ${c.move}` : ''}${c.person && c.grp !== 'ask' ? ` (${c.person})` : ''}\n   Why: ${[...((c.why && c.why.rows) || []).map((r) => `${r.who} ${plain(r.what)} ${r.number || ''}`), ...((c.why && c.why.lines) || []).map((l) => plain(l.text))].join('; ').slice(0, 600)}`;
     return {
       cards, rv,
+      headline: (() => { const w = ['no', 'one', 'two', 'three', 'four', 'five']; const n = (g) => cards.filter((c) => c.grp === g).length; const parts = [[n('decide'), 'to decide'], [n('ask'), 'to ask in the meeting'], [n('coach'), 'to coach']].filter(([k]) => k).map(([k, t]) => `${w[k] || k} ${t}`); return cards.length ? `You have ${w[cards.length] || cards.length} thing${cards.length > 1 ? 's' : ''} for the review: ${parts.join(', ')}.` : 'Nothing needs you for the review yet.'; })(),
       text: [
         `THE WEEK: pipeline review on ${rv ? weekday(rv.date) : 'the next review'}. ${sn.who.length ? `${sn.who.join(', ')} checked in.` : 'No check-ins yet.'} ${sn.fixes} Salesforce fixes waiting. ${sn.broken.length} promises broken since the last review. ${sn.toGo} reps still to check in.`,
         'TO DECIDE', ...(by('decide').map(item).length ? by('decide').map(item) : ['none']),
@@ -182,7 +183,7 @@
     const b = await briefText();
     voiceScreen({
       kicker: 'THE BRIEFER', title: 'Brief me', sub: 'About 90 seconds. Interrupt any time.', back: '#today', cls: 'ink', agent: R.agents.briefer,
-      vars: { first_name: first(S.me.name), brief: b.text },
+      vars: { first_name: first(S.me.name), brief: b.text, headline: b.headline },
       below: `<h2 class="grp">On today's screen</h2><div class="card"><ul class="plainlist">${b.cards.map((c) => `<li><b>${esc(c.headline)}</b>${c.number ? ` · ${esc(c.number)}` : ''}</li>`).join('')}</ul></div>`,
       done: 'Done. Everything is still on Today.',
     });

@@ -353,7 +353,17 @@ function briefFromContext(c) {
   ].join('\n');
 }
 
+// The Briefer's opening line: how many things, by group
+function briefHeadline(cards) {
+  const n = (g) => (cards || []).filter((x) => x.grp === g).length;
+  const words = ['no', 'one', 'two', 'three', 'four', 'five'];
+  const parts = [[n('decide'), 'to decide'], [n('ask'), 'to ask in the meeting'], [n('coach'), 'to coach']].filter(([k]) => k).map(([k, t]) => `${words[k] || k} ${t}`);
+  const total = (cards || []).length;
+  return total ? `You have ${words[total] || total} thing${total > 1 ? 's' : ''} for the review: ${parts.join(', ')}.` : 'Nothing needs you for the review yet.';
+}
+
 module.exports = {
+  briefHeadline,
   briefFromContext,
   profileNormalize,
   reviewPromisesRequest, reviewPromisesClean,

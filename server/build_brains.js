@@ -324,7 +324,7 @@ row();
 const I0 = webhook('I · Phone call starting', 'briefer-phone');
 const I1 = code('I · Key check', `if ($input.first().json.headers['x-room-key'] !== '${ST.room_key}') throw new Error('Not allowed'); return [{ json: {} }];`, false);
 const I2 = rpc('I · Brief context', 'room_brief_context', '={{ "{}" }}');
-const I3 = code('I · Write the brief', `return [{ json: { type: 'conversation_initiation_client_data', dynamic_variables: { first_name: 'Mark', brief: X.briefFromContext($input.first().json) } } }];`);
+const I3 = code('I · Write the brief', `return [{ json: { type: 'conversation_initiation_client_data', dynamic_variables: { first_name: 'Mark', brief: X.briefFromContext($input.first().json), headline: X.briefHeadline($input.first().json.cards) } } }];`);
 const I4 = respond('I · Brief', '={{ JSON.stringify($json) }}');
 chain(I0, I1, I2, I3, I4);
 
