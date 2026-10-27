@@ -96,3 +96,37 @@ create or replace function room_brief_context() returns json language sql stable
 revoke all on function room_brief_context() from public, anon, authenticated;
 grant execute on function room_brief_context() to service_role;
 notify pgrst, 'reload schema';
+
+-- Approving Salesforce fixes: the server reads them, works out the new values, then applies them
+create or replace function room_edits_for(p_ids uuid[]) returns json language sql stable as $$
+  select json_build_object('today', room_today(),
+    'edits', (select coalesce(json_agg(json_build_object('id', e.id, 'deal_id', e.deal_id, 'owner', e.owner, 'field', e.field, 'to', e.to_value, 'reason', e.reason,
+       'deal', (select row_to_json(d) from deals d where d.id = e.deal_id))), '[]') from sf_edits e where e.id = any(p_ids) and e.status = 'waiting'),
+    'stages', (select coalesce(json_agg(distinct stage), '[]') from deals where status = 'open')) $$;
+
+create or replace function room_apply_edits(p_patches jsonb, p_person text) returns json language plpgsql as $$
+declare x jsonb; n int := 0; f brain_outputs; live jsonb; begin
+  select * into f from brain_outputs where brain = 'deal' and kind = 'facts' order by created_at desc limit 1;
+  live := coalesce(f.body->'live', '[]');
+  for x in select * from jsonb_array_elements(coalesce(p_patches, '[]')) loop
+    update sf_edits set status = 'approved', decided_by = p_person, decided_at = now() where id = (x->>'edit_id')::uuid;
+    if (x->>'deal_id') is not null and jsonb_typeof(x->'set') = 'object' then
+      update deals set close = coalesce((x->'set'->>'close')::date, close), value = coalesce((x->'set'->>'value')::numeric, value),
+        stage = coalesce(x->'set'->>'stage', stage), status = coalesce(x->'set'->>'status', status), updated_at = now() where id = x->>'deal_id';
+      -- keep the brains' copy of open deals in step
+      if coalesce(x->'set'->>'status', 'open') <> 'open' then
+        live := (select coalesce(jsonb_agg(e), '[]') from jsonb_array_elements(live) e where e->>'id' <> x->>'deal_id');
+      else
+        live := (select coalesce(jsonb_agg(case when e->>'id' = x->>'deal_id' then e || jsonb_strip_nulls(jsonb_build_object('close', x->'set'->'close', 'value', x->'set'->'value', 'stage', x->'set'->'stage', 'horizon', x->'set'->'horizon')) else e end), '[]') from jsonb_array_elements(live) e);
+      end if;
+      n := n + 1;
+    end if;
+  end loop;
+  update brain_outputs set body = jsonb_set(body, '{live}', live) where id = f.id;
+  return json_build_object('applied', n);
+end $$;
+revoke all on function room_edits_for(uuid[]) from public, anon, authenticated;
+revoke all on function room_apply_edits(jsonb, text) from public, anon, authenticated;
+grant execute on function room_edits_for(uuid[]) to service_role;
+grant execute on function room_apply_edits(jsonb, text) to service_role;
+notify pgrst, 'reload schema';

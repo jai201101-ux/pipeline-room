@@ -159,7 +159,7 @@
       const c = cards.find((x) => x.id === b.dataset.card); const a = c.action || {};
       b.disabled = true;
       try {
-        if (a.kind === 'approve_edits' && a.ids) await q(sb.from('sf_edits').update({ status: 'approved', decided_by: S.me.name, decided_at: new Date().toISOString() }).in('id', a.ids));
+        if (a.kind === 'approve_edits' && a.ids) await server('edits-approved', { ids: a.ids }); // deals change, that rep's list and Today follow
         for (const ev of [...new Set([...(a.event_ids || []), ...(a.event_id ? [a.event_id] : [])])]) await q(sb.rpc('room_mark_done', { p_event: ev }));
         await q(sb.from('reactions').insert({ card_id: c.id, person: S.me.name, kind: 'done', reason: a.kind }));
         b.outerHTML = `<span class="donepill">✓ ${actionState(c, [{ card_id: c.id, kind: 'done' }])}</span>`;
