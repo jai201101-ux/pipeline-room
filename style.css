@@ -174,3 +174,6 @@ textarea { font: inherit; font-size: 14px; padding: 10px 12px; border-radius: 12
 .people { display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); column-gap: 16px; max-height: 16em; overflow: auto; }
 .people .tick input:not(:checked) + span { text-decoration: none; color: var(--ink); }
 #sfOut, #trOut { display: flex; flex-direction: column; gap: 10px; }
+
+.sr { position: absolute; left: -9999px; }
+select.btn { font: inherit; font-size: 13px; font-weight: 600; }

@@ -148,6 +148,11 @@
         </aside>
       </div>`;
     $app.querySelectorAll('[data-brief]').forEach((b) => (b.onclick = () => { location.hash = '#brief'; }));
+    // Live: when a rep sends a check-in or the brains rebuild Today, the screen refreshes itself
+    const sig = async () => { const [c, t] = await Promise.all([q(sb.from('cards').select('id').eq('status', 'live')), q(sb.from('transcripts').select('id').eq('kind', 'checkin'))]); return `${c.map((x) => x.id).sort().join()}|${t.length}`; };
+    const first0 = await sig();
+    const onToday = () => !location.hash || location.hash === '#today';
+    setTimeout(() => onToday() && poll(async () => { if (!onToday()) return false; if ((await sig()) !== first0) { const y = window.scrollY; await screenToday(); window.scrollTo(0, y); return false; } return true; }, 15000), 15000);
     $app.querySelectorAll('.why').forEach((b) => (b.onclick = () => { const box = document.getElementById(`why-${b.dataset.card}`); box.hidden = !box.hidden; b.setAttribute('aria-expanded', String(!box.hidden)); }));
     $app.querySelectorAll('.vote').forEach((b) => (b.onclick = async () => { b.disabled = true; await q(sb.from('reactions').insert({ card_id: b.dataset.card, person: S.me.name, kind: b.dataset.kind })); b.parentElement.innerHTML = `<span class="small">Was this useful?</span><span class="donepill">${b.dataset.kind === 'useful' ? 'Useful' : 'Not useful'} · noted</span>`; }));
     $app.querySelectorAll('.act').forEach((b) => (b.onclick = async () => {
@@ -544,9 +549,10 @@
         <button class="btn ink wide" type="submit">Sign in</button>
         <div class="error" id="loginError" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
       </form>
-      <div class="quick"><button class="btn ghost sm" data-email="mark@example.com">Mark · VP</button><button class="btn ghost sm" data-email="andrew@example.com">Andrew · rep</button><button class="btn ghost sm" data-email="laura@example.com">Laura · rep</button></div>
+      <div class="quick"><button class="btn ghost sm" data-email="mark@example.com">Mark · VP</button><label class="sr" for="repPick">Pick a rep</label><select id="repPick" class="btn ghost sm"><option value="">Pick a rep…</option>${["alexandra","andrew","david","devin","djavan","dominic","federico","gabby","james","jimena","laura","luke","mayi","nick","paddy","peter","rich","tom"].map((n) => `<option value="${n}@example.com">${n[0].toUpperCase() + n.slice(1)} · rep</option>`).join("")}</select></div>
     </div>`;
     $app.querySelectorAll('[data-email]').forEach((b) => (b.onclick = () => { document.getElementById('email').value = b.dataset.email; document.getElementById('password').focus(); }));
+    document.getElementById('repPick').onchange = (e) => { if (e.target.value) { document.getElementById('email').value = e.target.value; document.getElementById('password').focus(); } };
     document.getElementById('loginForm').onsubmit = async (ev) => {
       ev.preventDefault();
       const { error } = await sb.auth.signInWithPassword({ email: document.getElementById('email').value.trim(), password: document.getElementById('password').value });
