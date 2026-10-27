@@ -177,3 +177,5 @@ textarea { font: inherit; font-size: 14px; padding: 10px 12px; border-radius: 12
 
 .sr { position: absolute; left: -9999px; }
 select.btn { font: inherit; font-size: 13px; font-weight: 600; }
+select.btn { background: var(--surface); color: var(--ink); }
+select.btn option { background: var(--surface); color: var(--ink); }
