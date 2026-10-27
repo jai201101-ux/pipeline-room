@@ -557,6 +557,7 @@
       ev.preventDefault();
       const { error } = await sb.auth.signInWithPassword({ email: document.getElementById('email').value.trim(), password: document.getElementById('password').value });
       if (error) { const el = document.getElementById('loginError'); el.hidden = false; el.textContent = 'That email and password did not match.'; return; }
+      history.replaceState(null, '', location.pathname); // start fresh on each person's home screen
       boot();
     };
   }
@@ -578,6 +579,7 @@
         else await screenMe();
       } else if (k === 'deals') await screenDeals();
       else if (k === 'people') await screenPeople();
+      else if (k === 'person' && !arg) { location.hash = '#people'; return; }
       else if (k === 'person') await screenPerson(arg);
       else if (k === 'thinking') await screenThinking();
       else if (k === 'train') await screenTrain(arg);
