@@ -202,7 +202,7 @@
     $app.innerHTML = header('DEAL BRAIN', 'What each check-in will ask', `Filtered by thinking model v${th.v.version} · ${th.deal.length} deal rules`, 'deal') + `
       <section class="section">${reps.map((l) => { const xs = l.body.listen_for || []; return `<details class="card"><summary><span class="title">${esc(l.person)}</span><span class="small">${xs.length} deal${xs.length === 1 ? '' : 's'} · ${day(l.created_at)}</span></summary>
         ${xs.map((x) => `<div class="row col"><span>${x.deal ? `<b>${usd(x.deal.value)}</b> · ${esc(x.deal.stage)} · close ${day(x.deal.close)}` : ''} <button class="ref" data-ref="${esc(x.ref)}">${esc(x.ref)}</button></span><span class="meta">${esc(plain(x.why))}</span></div>`).join('') || empty('Nothing to ask.')}</details>`; }).join('') || empty('No lists yet.')}
-      <a class="btn dealfill" href="#train/deal">Change what it asks: talk to the Analyst</a></section>`;
+      <div class="quick"><a class="btn dealfill" href="#train/deal">Change what it asks: talk to the Analyst</a><button class="btn ghost" data-download-deals>Download deals (.xlsx)</button></div><div class="small">The download shows every deal as it stands in the app, with Salesforce fixes approved from check-ins, plus a sheet listing each change.</div></section>`;
   }
 
   // ---------- VP: People ----------
@@ -456,6 +456,7 @@
         <div class="row"><span>People who can sign in</span><span class="meta">${ppl.filter((p) => p.email).length} of ${ppl.length}</span></div>
       </div></div></section>
 
+      <section class="section"><h2 class="grp">Download</h2><div class="card"><div class="text">Every deal as it stands now, including changes approved from check-ins, plus a sheet listing each change.</div><button class="btn ghost" data-download-deals>Download deals (.xlsx)</button></div></section>
       <section class="section"><h2 class="grp g-ask">New Salesforce export</h2><div class="card">
         <div class="text">The same export as before: one row per product line, .xlsx or .csv.</div>
         <label class="btn ghost filebtn">Choose file<input type="file" id="sfFile" accept=".xlsx,.xls,.csv" hidden></label>
@@ -534,6 +535,26 @@
       } catch (err) { btn.disabled = false; btn.textContent = 'Try again'; $out.innerHTML = `<span class="error">${esc(err.message || err)}</span>`; }
     };
   }
+  // Download Salesforce as it stands in the app: every deal (with changes approved from check-ins) plus the change log
+  async function downloadDeals(btn) {
+    const label = btn.textContent; btn.disabled = true; btn.textContent = 'Preparing…';
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+      const deals = [];
+      for (let from = 0; ; from += 1000) { const page = await q(sb.from('deals').select('id,ref,owner,client,segment,region,value,stage,status,close,entered_stage,source,type').order('id').range(from, from + 999)); deals.push(...page); if (page.length < 1000) break; }
+      const edits = await q(sb.from('sf_edits').select('deal_id,owner,field,to_value,reason,status,decided_by,decided_at,created_at').order('created_at'));
+      const changed = new Set(edits.filter((e) => e.status === 'approved').map((e) => e.deal_id));
+      const rows = deals.map((d) => ({ 'Opportunity ID': d.id, Ref: d.ref, Owner: d.owner, Client: d.client || '', Segment: d.segment, Region: d.region, 'Value ($)': d.value, Stage: d.stage, Status: d.status, 'Close Date': d.close, 'In stage since': d.entered_stage, Source: d.source, Type: d.type, 'Changed in app': changed.has(d.id) ? 'Yes' : '' }));
+      const log = edits.map((e) => ({ 'Opportunity ID': e.deal_id, Rep: e.owner, Field: e.field, 'New value (as the rep said it)': e.to_value, Reason: e.reason, Status: e.status, 'Decided by': e.decided_by || '', 'Decided at': (e.decided_at || '').slice(0, 10), 'From check-in on': (e.created_at || '').slice(0, 10) }));
+      const wb = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(rows), 'Deals');
+      window.XLSX.utils.book_append_sheet(wb, window.XLSX.utils.json_to_sheet(log.length ? log : [{ Note: 'No Salesforce changes from check-ins yet' }]), 'Changes from check-ins');
+      window.XLSX.writeFile(wb, `Pipeline Room deals ${new Date().toISOString().slice(0, 10)}.xlsx`);
+      btn.textContent = label;
+    } catch (e) { btn.textContent = 'Try again'; }
+    btn.disabled = false;
+  }
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-download-deals]'); if (b) downloadDeals(b); });
   const loadScript = (src) => new Promise((res, rej) => { if (document.querySelector(`script[src="${src}"]`)) return res(); const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error(`could not load ${src}`)); document.head.appendChild(el); });
 
   // ---------- sign in ----------
