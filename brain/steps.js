@@ -339,7 +339,22 @@ function profileNormalize(p) {
   return p;
 }
 
+// ---------- 8. The Briefer's script for a phone call (the app builds the same from the screen) ----------
+function briefFromContext(c) {
+  const clean = (t) => String(t || '').replace(/\s*\[F:[^\]]+\]/g, '').replace(/\s*\((?:deals? )?[0-9][0-9A-Za-z]{5}\)/g, '').trim();
+  const by = (g) => (c.cards || []).filter((x) => x.grp === g);
+  const item = (x, i) => `${i + 1}. ${x.headline}. ${x.number ? `Number: ${x.number}. ` : ''}${clean(x.body)}${x.move ? ` Move: ${x.move}` : ''}${x.person && x.grp !== 'ask' ? ` (${x.person})` : ''}\n   Why: ${[...(((x.why || {}).rows) || []).map((r) => `${r.who} ${clean(r.what)} ${r.number || ''}`), ...(((x.why || {}).lines) || []).map((l) => clean(l.text))].join('; ').slice(0, 600)}`;
+  const rv = c.review || {};
+  const who = c.checked_in || [];
+  const list = (g) => (by(g).length ? by(g).map(item) : ['none']);
+  return [
+    `THE WEEK: pipeline review on ${rv.date || 'the next review'}. ${who.length ? `${who.join(', ')} checked in.` : 'No check-ins yet.'} ${c.fixes} Salesforce fixes waiting. ${c.broken} promises broken since the last review. ${Math.max(0, (c.reps || 0) - who.length)} reps still to check in.`,
+    'TO DECIDE', ...list('decide'), 'TO ASK IN THE MEETING', ...list('ask'), 'TO COACH', ...list('coach'),
+  ].join('\n');
+}
+
 module.exports = {
+  briefFromContext,
   profileNormalize,
   reviewPromisesRequest, reviewPromisesClean,
   MODEL, BUDGET, request, answer, words, norm, short, usd, pct, rulesText, budgetProblems, numberProblems, dealLine,

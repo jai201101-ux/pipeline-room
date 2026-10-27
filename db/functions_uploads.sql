@@ -82,3 +82,17 @@ revoke all on function room_save_review_promises(uuid, jsonb, jsonb) from public
 grant execute on function room_review_context(uuid) to service_role;
 grant execute on function room_save_review_promises(uuid, jsonb, jsonb) to service_role;
 notify pgrst, 'reload schema';
+
+-- Everything the Briefer needs for a phone call (the server calls this, no login on a phone)
+create or replace function room_brief_context() returns json language sql stable as $$
+  with rv as (select * from reviews order by date desc limit 1)
+  select json_build_object(
+    'review', (select row_to_json(rv) from rv),
+    'cards', (select coalesce(json_agg(json_build_object('grp', grp, 'headline', headline, 'number', number, 'body', body, 'move', move, 'person', person, 'why', why, 'rank', rank) order by rank desc), '[]') from cards where status = 'live' and grp is not null),
+    'checked_in', (select coalesce(json_agg(distinct p), '[]') from transcripts t, unnest(t.people) p, rv where t.kind = 'checkin' and t.date >= rv.window_from),
+    'fixes', (select count(*) from sf_edits where status = 'waiting'),
+    'broken', (select count(*) from promises, rv where status = 'broken' and checked_on >= rv.window_from),
+    'reps', (select count(*) from people where role = 'rep')) $$;
+revoke all on function room_brief_context() from public, anon, authenticated;
+grant execute on function room_brief_context() to service_role;
+notify pgrst, 'reload schema';

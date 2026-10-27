@@ -318,6 +318,16 @@ const HP0 = ifNode('H · New recording?', "={{ !!$('H · Allowed?').first().json
 link(H4, HP0); link(HP0, HP1, 0);
 chain(HP1, HP2, HP3, HP4, HP5);
 
+row();
+
+// ---------------- I. A phone call to the Briefer: ElevenLabs asks who is calling, we hand back Mark's brief ----------------
+const I0 = webhook('I · Phone call starting', 'briefer-phone');
+const I1 = code('I · Key check', `if ($input.first().json.headers['x-room-key'] !== '${ST.room_key}') throw new Error('Not allowed'); return [{ json: {} }];`, false);
+const I2 = rpc('I · Brief context', 'room_brief_context', '={{ "{}" }}');
+const I3 = code('I · Write the brief', `return [{ json: { type: 'conversation_initiation_client_data', dynamic_variables: { first_name: 'Mark', brief: X.briefFromContext($input.first().json) } } }];`);
+const I4 = respond('I · Brief', '={{ JSON.stringify($json) }}');
+chain(I0, I1, I2, I3, I4);
+
 const wf = { name: 'Pipeline Room · brains', nodes, connections, settings: { executionOrder: 'v1' } };
 fs.writeFileSync(path.join(__dirname, 'wf_brains.json'), JSON.stringify(wf, null, 1));
 console.log(`built ${nodes.length} nodes`);
