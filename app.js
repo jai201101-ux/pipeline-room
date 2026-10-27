@@ -544,8 +544,8 @@
       <h1>Walk into the pipeline review knowing where you're needed</h1>
       <p class="sub">Reps check in by voice. Two brains read it. Mark gets five things, filtered by rules he sets by voice.</p>
       <form id="loginForm">
-        <label for="email">Email<input id="email" type="email" autocomplete="username" required></label>
-        <label for="password">Password<input id="password" type="password" autocomplete="current-password" required></label>
+        <label for="email">Email<input id="email" type="email" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required></label>
+        <label for="password">Password<input id="password" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required></label>
         <button class="btn ink wide" type="submit">Sign in</button>
         <div class="error" id="loginError" ${msg ? '' : 'hidden'}>${esc(msg || '')}</div>
       </form>
@@ -555,7 +555,7 @@
     document.getElementById('repPick').onchange = (e) => { if (e.target.value) { document.getElementById('email').value = e.target.value; document.getElementById('password').focus(); } };
     document.getElementById('loginForm').onsubmit = async (ev) => {
       ev.preventDefault();
-      const { error } = await sb.auth.signInWithPassword({ email: document.getElementById('email').value.trim(), password: document.getElementById('password').value });
+      const { error } = await sb.auth.signInWithPassword({ email: document.getElementById('email').value.trim(), password: document.getElementById('password').value.trim() });
       if (error) { const el = document.getElementById('loginError'); el.hidden = false; el.textContent = 'That email and password did not match.'; return; }
       history.replaceState(null, '', location.pathname); // start fresh on each person's home screen
       boot();
